@@ -1,0 +1,20 @@
+# syntax=docker/dockerfile:1
+FROM python:3.14-alpine AS builder
+
+RUN apk add --no-cache build-base postgresql-dev linux-headers
+
+RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
+    pip wheel --no-cache-dir -r /tmp/requirements.txt --wheel-dir /wheels
+
+FROM python:3.14-alpine
+
+RUN apk add --no-cache libpq libstdc++
+
+RUN --mount=type=bind,from=builder,source=/wheels,target=/wheels \
+    pip install --no-cache-dir --no-index /wheels/*
+
+WORKDIR /app
+
+COPY app.py /app/app.py
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

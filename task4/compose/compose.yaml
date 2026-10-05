@@ -1,0 +1,60 @@
+name: lab1-task4
+
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./nginx/app.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - frontend-net
+    depends_on:
+      simple_python_app:
+        condition: service_healthy
+
+  simple_python_app:
+    image: simple_python_app:task4
+    build: ./simple_python_app
+    environment:
+      API_DB_HOST: db
+      API_DB_PORT: "5432"
+      API_DB_NAME: api
+      API_DB_USER: apiuser
+      API_DB_PASS: apipass
+    networks:
+      - frontend-net
+      - backend-net
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=3).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  db:
+    image: postgres:16.2-alpine
+    environment:
+      POSTGRES_DB: api
+      POSTGRES_USER: apiuser
+      POSTGRES_PASSWORD: apipass
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    networks:
+      - backend-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apiuser -d api"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+networks:
+  frontend-net:
+  backend-net:
+
+volumes:
+  dbdata:
